@@ -26,6 +26,4 @@ pub(crate) enum ClientError {
     InvalidData,
     #[error("Missing content type header")]
     MissingContentType,
-    #[error("Invalid request format")]
-    InvalidRequestFormat,
 }
