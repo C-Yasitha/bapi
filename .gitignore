@@ -1,0 +1,10 @@
+# JetBrains
+.idea/
+
+# Build Artifacts
+/target
+/bootstrap/
+
+# CDK
+/cdk.out/
+template.yaml

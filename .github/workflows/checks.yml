@@ -1,0 +1,39 @@
+on: push
+
+env:
+  # renovate: datasource=github-releases depName=zig lookupName=ziglang/zig
+  ZIG_VERSION: 0.11.0
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo clippy
+  check_format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install nightly
+      - run: rustup component add rustfmt --toolchain nightly
+      - run: cargo +nightly fmt --check --all
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test
+  try_arm64_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Zig toolchain
+        uses: korandoru/setup-zig@v1
+        with:
+          zig-version: ${{ env.ZIG_VERSION }}
+      - name: Install Cargo Lambda
+        uses: jaxxstorm/action-install-gh-release@v1.11.0
+        with:
+          repo: cargo-lambda/cargo-lambda
+          platform: linux
+          arch: x86_64
+      - run: cargo lambda build --arm64

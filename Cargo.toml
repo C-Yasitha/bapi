@@ -1,0 +1,20 @@
+[package]
+name = "bapi"
+version = "0.1.0"
+authors = ["Chamindu Yasitha <contact@brylix.com>"]
+edition = "2021"
+
+[dependencies]
+async-graphql = { version = "7.0.3", features = ["tracing","playground"], default-features = false }
+aws_lambda_events = { version = "0.15.0", default-features = false }
+http = "1.1.0"
+lambda_http = "0.11.1"
+lambda_runtime = "0.11.1"
+lazy_static = "1.4.0"
+serde_json = "1.0.115"
+thiserror = "1.0.58"
+tokio = { version = "1.37.0", features = ["rt", "macros"] }
+tracing = "0.1.40"
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = ["registry"] }
+multipart = "0.18"
