@@ -22,4 +22,10 @@ pub(crate) enum ClientError {
     MethodNotAllowed,
     #[error("query param is required with GET method")]
     MissingQuery,
+    #[error("Invalid data in field")]
+    InvalidData,
+    #[error("Missing content type header")]
+    MissingContentType,
+    #[error("Invalid request format")]
+    InvalidRequestFormat,
 }

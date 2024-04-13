@@ -1,10 +1,13 @@
-use async_graphql::{EmptySubscription, Object, Result, Schema, SimpleObject};
+use async_graphql::{EmptySubscription, Object, Result, Schema, SimpleObject, Upload, Context};
 use lazy_static::lazy_static;
+use tokio::fs;
+use std::path::PathBuf;
 
 #[derive(SimpleObject)]
 struct User {
     id: i32,
     name: String,
+    image_url: String,
 }
 
 pub(crate) struct Query;
@@ -16,18 +19,22 @@ impl Query {
             User {
                 id: 1,
                 name: "Alex".into(),
+                image_url: "https://avatars.githubusercontent.com/u/4726920?v=4".into(),
             },
             User {
                 id: 2,
                 name: "Jesse".into(),
+                image_url: "https://avatars.githubusercontent.com/u/4726920?v=4".into(),
             },
             User {
                 id: 3,
                 name: "Chamindu".into(),
+                image_url: "https://avatars.githubusercontent.com/u/4726920?v=4".into(),
             },
             User {
                 id: 4,
                 name: "Yasitha".into(),
+                image_url: "https://avatars.githubusercontent.com/u/4726920?v=4".into(),
             },
         ];
         tracing::info!("Finished query");
@@ -39,9 +46,26 @@ pub(crate) struct Mutation;
 
 #[Object]
 impl Mutation {
-    async fn create_user(&self, name: String) -> Result<User> {
-        tracing::info!("User not created (no datasource)");
-        Ok(User { id: 1, name })
+    async fn create_user(&self,ctx: &Context<'_>, name: String, image: Upload) -> Result<User> {
+        tracing::info!("User creation with image started");
+
+        // Path where the image will be stored
+        let root_path = PathBuf::from("/imgs");  // Adjust this path to your appropriate root directory
+        let file_path = root_path.join(image.value(ctx).unwrap().filename);
+
+        // Save the file to the filesystem asynchronously
+        fs::write(&file_path, image.value(ctx).unwrap().content).await?;
+
+        // Generating a URL or relative path to the image (if necessary)
+        let image_url = format!("/{}", image.value(ctx).unwrap().filename);  // Adjust according to how you access files
+
+        // Placeholder for database insert logic
+        // Return the new user object with an image URL
+        Ok(User {
+            id: 1,  // This should be replaced by the ID assigned by your database or user management system
+            name,
+            image_url,
+        })
     }
 }
 
