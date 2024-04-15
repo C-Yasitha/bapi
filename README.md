@@ -18,10 +18,12 @@ This is set up for the most simple use-case: a [function URL](https://docs.aws.a
 
 ## How to use?
 
-1. `cargo lambda watch` will start the service _lazily_ (only compiles when the first request comes in), then watch and reload your code on changes. The URL will be `http://localhost:9000/lambda-url/graphql-example` (where graphql-example is the name of the binary once you change it).
-2. To deploy, first run `cargo lambda build --release --arm64` (for graviton processors) then `cargo lambda deploy`.
+1. `cargo lambda watch` will start the service _lazily_ (only compiles when the first request comes in), then watch and reload your code on changes. The URL will be `http://localhost:9000/graphql` (where graphql-example is the name of the binary once you change it).
+2. To deploy, first run `cargo lambda build --release --arm64` (for graviton processors) then `AWS_PROFILE=myprofile cargo lambda deploy`.
 3. To get the GitHub Actions to deploy on push to main, you need to set two GitHub Secrets for AIM credentials: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
 4. For the integration tests to work, fill in the `FUNCTION_URL` secret with the URL of the deployed function. This assumes that the same AWS credentials which can deploy the function can invoke it—if this isn't true, you'll need to tweak the `integration_test` job in `.github/workflows/release.yml`. It also assumes that your function is secured with the AWS_IAM type of [function security](https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html). You'll need to tweak this job as soon as you change the schema.
+5. For the graphql palygound `cargo lambda watch` will start the service _lazily_ (only compiles when the first request comes in), then watch and reload your code on changes. The URL will be `http://localhost:9000/playground`.
+6. To send the file upload requests and test the API use https://altairgraphql.dev/#download
 
 Here's an example IAM policy to use for GitHub secrets (both deploying and integration testing):
 
