@@ -1,9 +1,13 @@
 use std::fmt::Display;
 
-use async_graphql::{http::GraphQLPlaygroundConfig,http::playground_source, Request as GraphQlRequest, Response as GraphQlResponse, ServerError as GraphQlError};
+use async_graphql::{
+    http::playground_source, http::GraphQLPlaygroundConfig, Request as GraphQlRequest,
+    Response as GraphQlResponse, ServerError as GraphQlError, UploadValue,
+};
 use http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, RequestExt, Response};
-use multer::{Multipart, Field};
+use multer::Multipart;
+use std::collections::HashMap;
 use std::io::Cursor;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
@@ -24,7 +28,7 @@ pub async fn handle_request(request: Request) -> Result<Response<Body>, Error> {
                 .header("Content-Type", "text/html")
                 .body(Body::Text(html))
                 .expect("Failed to render response"))
-        },
+        }
         // Handle GraphQL queries and mutations at /graphql
         (&Method::POST, "/graphql") | (&Method::GET, "/graphql") => {
             let query = if request.method() == Method::POST {
@@ -45,7 +49,7 @@ pub async fn handle_request(request: Request) -> Result<Response<Body>, Error> {
                 .body(Body::Text(response_body))
                 .map_err(ServerError::from)
                 .map_err(Error::from)
-        },
+        }
         // Default response for unsupported methods or paths
         _ => return Err(ClientError::MethodNotAllowed.into()),
     }
@@ -61,19 +65,6 @@ fn error_response(status: StatusCode, body: String) -> Result<Response<Body>, Er
     Ok(Response::builder().status(status).body(Body::Text(body))?)
 }
 
-// Helper function to create a GraphQL request from multipart fields
-async fn handle_multipart_field<'a>(field: Field<'a>) -> Result<Option<GraphQlRequest>, ClientError> {
-    match field.name() {
-        Some("operations") => {
-            let data = field.text().await.map_err(|_| ClientError::InvalidData)?;
-            serde_json::from_str::<GraphQlRequest>(&data)
-                .map(Some)
-                .map_err(ClientError::from)
-        },
-        _ => Ok(None) // Handle other fields or ignore them
-    }
-}
-
 async fn graphql_request_from_post(request: Request) -> Result<GraphQlRequest, Error> {
     // Clone the headers before consuming the request body
     let headers = request.headers().clone();
@@ -81,21 +72,21 @@ async fn graphql_request_from_post(request: Request) -> Result<GraphQlRequest, E
     match request.into_body() {
         Body::Empty => Err(ClientError::EmptyBody.into()),
         Body::Text(text) => {
-            serde_json::from_str::<GraphQlRequest>(&text)
-                .map_err(|e| ServerError::from(e).into())
-        },
+            serde_json::from_str::<GraphQlRequest>(&text).map_err(|e| ServerError::from(e).into())
+        }
         Body::Binary(binary) => {
             let content_type = headers
                 .get("Content-Type")
                 .ok_or(ClientError::MissingContentType)?;
-                
+
             let is_multipart = content_type
                 .to_str()
                 .map_err(|_| ClientError::InvalidData)?
                 .starts_with("multipart/form-data");
 
             if is_multipart {
-                let boundary = content_type.to_str()?
+                let boundary = content_type
+                    .to_str()?
                     .split(";")
                     .find(|s| s.trim_start().starts_with("boundary="))
                     .ok_or(ClientError::InvalidData)?
@@ -106,25 +97,63 @@ async fn graphql_request_from_post(request: Request) -> Result<GraphQlRequest, E
 
                 let mut multipart = Multipart::new(
                     FramedRead::new(Cursor::new(binary), BytesCodec::new()),
-                    boundary.to_string()
+                    boundary.to_string(),
                 );
 
-                let mut graphql_request: Option<GraphQlRequest> = None;
+                let mut operations: Option<GraphQlRequest> = None;
+                let mut file_map = HashMap::new();
+                let mut uploads = HashMap::new();
 
-                while let Ok(Some(field)) = multipart.next_field().await {
+                while let Some(field) = multipart.next_field().await? {
+                    match field.name() {
+                        Some("operations") => {
+                            let data = field.text().await?;
+                            //print!("Operations: {}", data);
+                            operations = serde_json::from_str::<GraphQlRequest>(&data).ok();
+                        }
+                        Some("map") => {
+                            let data = field.text().await?;
+                            //  print!(" map data {}",data);
+                            file_map = serde_json::from_str::<HashMap<String, Vec<String>>>(&data)
+                                .unwrap_or_default();
+                        }
+                        Some(file_field) if file_map.contains_key(file_field) => {
+                            let filenames = file_map.get(file_field).unwrap();
 
-                    let name = field.name().unwrap_or("<unnamed>");
-                    let file_name = field.file_name().map(|s| s.to_string()).unwrap_or("<no filename>".to_string());
-                    let content_type = field.content_type().map(|s| s.to_string()).unwrap_or("<no content type>".to_string());
-            
-                    println!("Field name: {}, File name: {}, Content Type: {}", name, file_name, content_type);
-                    
-                   if let Some(request) = handle_multipart_field(field).await? {
-                        graphql_request = Some(request);
+                            let filename = field
+                                .file_name()
+                                .map(|name| name.to_string())
+                                .unwrap_or_else(|| "default_filename".to_string());
+                            let content_type = field.content_type().map(|ctype| ctype.to_string());
+
+                            let content = field.bytes().await?;
+
+                            let upload = UploadValue {
+                                filename: filename.clone(),
+                                content_type: content_type,
+                                content: content,
+                            };
+
+                            // uploads.push(upload);
+                            uploads.insert(filenames.clone(), upload);
+                        }
+                        _ => {}
                     }
                 }
 
-                graphql_request.ok_or_else(|| ClientError::MissingQuery.into())
+                if let Some(mut op) = operations {
+                    // op.uploads = uploads;
+
+                    for (name, upload) in uploads {
+                        op.set_upload(&name[0], upload);
+                    }
+
+                    //println valiables
+                   // println!("{:?}", op.variables);
+                    Ok(op)
+                } else {
+                    Err(Error::from(ClientError::MissingQuery))
+                }
             } else {
                 serde_json::from_slice::<GraphQlRequest>(&binary)
                     .map_err(|e| ServerError::from(e).into())
@@ -132,14 +161,6 @@ async fn graphql_request_from_post(request: Request) -> Result<GraphQlRequest, E
         }
     }
 }
-
-//async fn graphql_request_from_post(request: Request) -> Result<GraphQlRequest, ClientError> {
-//     match request.into_body() {
-//         Body::Empty => Err(ClientError::EmptyBody),
-//         Body::Text(text) => serde_json::from_str::<GraphQlRequest>(&text).map_err(ClientError::from),
-//         Body::Binary(binary) => serde_json::from_slice::<GraphQlRequest>(&binary).map_err(ClientError::from)
-//     }
-// }
 
 async fn graphql_request_from_get(request: Request) -> Result<GraphQlRequest, Error> {
     let params = request.query_string_parameters();
