@@ -1,5 +1,6 @@
 # rust-lambda-graphql-Upload-example
-Initial source code from [dbanty Dylan Anthony](https://github.com/dbanty/rust-lambda-graphql-example)
+Initial source code from [dbanty Dylan Anthony](https://github.com/dbanty/rust-lambda-graphql-example). 
+
 A super simple example GraphQL API that can be hosted on AWS Lambda. Has the file upload feature
 
 ## What's in the box?
