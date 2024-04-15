@@ -46,29 +46,25 @@ pub(crate) struct Mutation;
 
 #[Object]
 impl Mutation {
-    async fn create_user(&self,ctx: &Context<'_>, name: String, image: Upload,image2: Upload) -> Result<User> {
+    async fn create_user(&self,ctx: &Context<'_>, name: String, image: Upload) -> Result<User> {
         tracing::info!("User creation with image started");
 
-     //   println!("Image 1 name");
-
-        println!("Image 1 name {}",image.value(ctx).unwrap().filename);
-
         // // Path where the image will be stored
-        // let root_path = PathBuf::from("/imgs");  // Adjust this path to your appropriate root directory
-        // let file_path = root_path.join(image.value(ctx).unwrap().filename);
+        let root_path = PathBuf::from("imgs");  // Adjust this path to your appropriate root directory
+        let file_path = root_path.join(image.value(ctx).unwrap().filename);
 
         // // Save the file to the filesystem asynchronously
-        // fs::write(&file_path, image.value(ctx).unwrap().content).await?;
+        fs::write(&file_path, image.value(ctx).unwrap().content).await?;
 
         // // Generating a URL or relative path to the image (if necessary)
-        // let image_url = format!("/{}", image.value(ctx).unwrap().filename);  // Adjust according to how you access files
+        let image_url = format!("/{}", image.value(ctx).unwrap().filename);  // Adjust according to how you access files
 
         // Placeholder for database insert logic
         // Return the new user object with an image URL
         Ok(User {
             id: 1,  // This should be replaced by the ID assigned by your database or user management system
             name,
-            image_url: "https://avatars.githubusercontent.com/u/4726920?v=4".into(),
+            image_url: image_url,
         })
     }
 }
