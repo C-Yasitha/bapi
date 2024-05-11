@@ -42,6 +42,12 @@ pub async fn handle_request(request: Request) -> Result<Response<Body>, Error> {
                 Ok(query) => query,
             };
 
+            //inject jwt
+            // query.data(user);
+
+            //inject db
+            // query.data(db);
+
             let response_body =
                 serde_json::to_string(&SCHEMA.execute(query).await).map_err(ServerError::from)?;
             Response::builder()
